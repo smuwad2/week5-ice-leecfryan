@@ -31,35 +31,124 @@
             <p class="text-center">No items</p>
         </div>
     </div>
-    
+
     <script>
-        function getCategories() {
+        async function getCategories() {
             // Fetch categories from the server using Axios
             // and display them in the select element
             // url: http://localhost:3010/categories
+            try {
+                const res = await axios.get('/categories');
+                // showCategories(res.data);
+                showCategories(Array.isArray(res.data) ? res.data : (res.data?.categories ?? []));
+
+                const sel = document.getElementById('selectCategory');
+                sel.value = 'all';
+                await getItems();
+                // document.getElementById('selectCategory').value = 'all';
+                // await getItems();
+            } catch (err) {
+                console.log(err);
+            }
 
         }
 
         function showCategories(categories) {
             // Display the categories in the select element
-            
+            const sEl = document.getElementById('selectCategory');
+
+            // keep first two options ("To select", "All"); remove the rest
+            while (sEl.options.length > 2) sEl.remove(2);
+
+            if (!categories || categories.length === 0) {
+                console.warn('No categories to render.');
+                return;
+            }
+
+            const frag = document.createDocumentFragment();
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;              // ✅ visible label
+                frag.appendChild(opt);
+            });
+            sEl.appendChild(frag);
+            console.log('Rendered categories:', categories);
         }
 
-        function getItems() {
+        async function getItems() {
             // Fetch items based on the selected category
             // If "To select" is chosen, do nothing
             // If "All" is chosen, fetch all items
             // If a specific category is chosen, fetch items for that category
             // url: http://localhost:3010/items?category=categoryName
-            
+            const sEl = document.getElementById('selectCategory');
+            const value = sEl.value;
+
+            if (value === '0') return;            // "To select" → do nothing
+
+            try {
+                const res = (value === 'all')
+                    ? await axios.get('/items')
+                    : await axios.get('/items', { params: { category: value } });
+
+                console.log('GET /items →', res.data);
+                showItems(res.data);
+            } catch (err) {
+                const container = document.getElementById('itemsList');
+                while (container.firstChild) container.removeChild(container.firstChild);
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-danger';
+                alert.textContent = 'Failed to load items.';
+                container.appendChild(alert);
+                console.error('GET /items failed:', err);
+            }
         }
 
         function showItems(items) {
             // Display the items in the itemsList div
             // Each item should be displayed in a bootstrap card format
             // The display should be responsive 3 columns on large screens, 2 columns on medium screens, and 1 column on small screens
-            
+            const container = document.getElementById('itemsList');
 
+            while (container.firstChild) container.removeChild(container.firstChild);
+
+            if (!items || items.length === 0) {
+                const p = document.createElement('p');
+                p.className = 'text-center text-muted';
+                p.textContent = 'No items';
+                container.appendChild(p);
+                return;
+            }
+
+            const frag = document.createDocumentFragment();
+
+            items.forEach(item => {
+                const col = document.createElement('div');
+                col.className = 'col-12 col-md-6 col-lg-4 mb-3';
+
+                const card = document.createElement('div');
+                card.className = 'card text-center';
+
+                const body = document.createElement('div');
+                body.className = 'card-body';
+
+                const title = document.createElement('h6');
+                title.className = 'card-title mb-1';
+                title.textContent = item.name;
+
+                const price = document.createElement('p');
+                price.className = 'card-text text-muted';
+                price.textContent = `Price: $${Number(item.price).toFixed(2)}`;
+
+                body.appendChild(title);
+                body.appendChild(price);
+                card.appendChild(body);
+                col.appendChild(card);
+                frag.appendChild(col);
+            });
+
+            container.appendChild(frag);
         }
 
     </script>
